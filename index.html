@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Seguridad Pública - Zaragoza</title>
+    <link href="./dist/output.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .sidebar { min-height: 100vh; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        #pantallaCargaAuth {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #0f172a; z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; color: white;
+        }
+
+        #modalCmdt {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(15, 23, 42, 0.85); z-index: 9999;
+            display: flex; justify-content: center; align-items: center;
+            backdrop-filter: blur(4px);
+        }
+        #modalCmdt.hidden { display: none !important; }
+        .caja-modal {
+            background: white; border-radius: 0.75rem; padding: 2rem;
+            width: 100%; max-width: 28rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+    </style>
+</head>
+<body class="flex hidden" id="bodyPrincipal">
+
+    <div id="pantallaCargaAuth">
+        <i class="fas fa-shield-alt text-6xl text-blue-500 mb-4 animate-pulse"></i>
+        <h2 class="text-xl font-bold tracking-widest uppercase">Verificando Credenciales...</h2>
+    </div>
+
+    <div id="modalCmdt" class="hidden">
+        <div class="caja-modal">
+            <div class="flex items-center space-x-3 mb-4">
+                <div class="w-12 h-12 bg-red-100 text-red-600 rounded-full flex justify-center items-center text-xl">
+                    <i class="fas fa-lock"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-slate-800">Acceso Restringido</h3>
+                    <p class="text-sm text-slate-500 font-medium uppercase tracking-wider">Autorización Requerida</p>
+                </div>
+            </div>
+            
+            <p class="text-sm text-slate-600 mb-6 pb-4 border-b border-slate-100">Para ingresar al módulo de Alta de Oficiales, ingrese el correo y contraseña de un Comandante.</p>
+            
+            <div id="msgModalCmdt" class="hidden text-sm font-medium text-red-600 bg-red-50 p-3 rounded-lg border border-red-200 mb-4"></div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Correo del Comandante *</label>
+                    <input type="email" id="modalEmailCmdt" placeholder="ejemplo@zaragoza.gob.mx" class="w-full px-4 py-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Contraseña *</label>
+                    <div class="flex items-center gap-2">
+                        <input type="password" id="modalPassCmdt" placeholder="Ingrese la contraseña" class="flex-1 px-4 py-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500 outline-none">
+                        <button type="button" id="btnVerPassModal" class="flex-none flex justify-center items-center px-4 py-2 bg-slate-100 border border-slate-300 rounded-md text-slate-500 hover:bg-slate-200 hover:text-blue-600 focus:outline-none transition-colors">
+                            <i class="fas fa-eye text-lg" id="iconoPassModal"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-8 flex justify-end space-x-3">
+                <button id="btnCancelarModal" class="px-5 py-2 text-slate-600 hover:bg-slate-100 rounded-md font-medium transition">Cancelar</button>
+                <button id="btnAutorizarModal" class="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-md font-medium shadow transition flex items-center gap-2">
+                    <i class="fas fa-key"></i> Desbloquear
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <aside class="w-64 bg-slate-900 text-white sidebar flex flex-col fixed h-full z-10">
+        <div class="p-6 text-center border-b border-slate-700 flex flex-col items-center">
+            <img src="./logo.png" alt="Connect Safe" class="w-20% h-auto mb-3 drop-shadow-md">
+            <h1 class="text-xl font-bold uppercase tracking-wider">Seguridad Pública</h1>
+            <p class="text-sm text-slate-400 mt-1">Zaragoza, Pue.</p>
+        </div>
+        
+        <div class="bg-slate-800 p-4 border-b border-slate-700 flex items-center space-x-3">
+            <div class="w-10 h-10 bg-blue-600 rounded-full flex justify-center items-center text-lg font-bold">👮</div>
+            <div class="overflow-hidden">
+                <p id="uiOficialNombre" class="text-sm font-bold truncate">Cargando...</p>
+                <p id="uiOficialPlaca" class="text-xs text-blue-400 font-mono">---</p>
+            </div>
+        </div>
+
+        <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
+            <button id="btnNavMonitoreo" class="w-full text-left block px-4 py-2 bg-blue-600 text-white rounded-md shadow transition">🚨 Monitoreo y Alertas</button>
+            <button id="btnNavRegistro" class="w-full text-left block px-4 py-2 text-slate-300 hover:bg-slate-800 rounded-md transition">👥 Registro de Ciudadanos</button>
+            <button id="btnNavHistorial" class="w-full text-left block px-4 py-2 text-slate-300 hover:bg-slate-800 rounded-md transition">📚 Historial de Alertas</button>
+            <button id="btnNavOficiales" class="w-full text-left block px-4 py-2 text-slate-300 hover:bg-slate-800 rounded-md transition flex justify-between items-center">
+                <span>👮 Alta de Oficiales</span>
+                <span class="bg-red-500 text-[10px] py-0.5 px-2 rounded font-bold text-white"><i class="fas fa-lock text-[8px]"></i> Cmdt</span>
+            </button>
+        </nav>
+        <div class="p-4 border-t border-slate-700">
+            <button id="btnCerrarSesion" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-md transition flex justify-center items-center gap-2">
+                <i class="fas fa-power-off"></i> Cerrar Sesión
+            </button>
+        </div>
+    </aside>
+
+    <main class="flex-1 p-8 ml-64">
+        
+        <div id="seccionMonitoreo" class="block animate-fade-in">
+            <header class="mb-6 flex justify-between items-center">
+                <div>
+                    <h2 class="text-3xl font-semibold text-gray-800">Centro de Monitoreo</h2>
+                    <p class="text-gray-500 mt-1">Visualización de usuarios y pulseras registradas.</p>
+                </div>
+            </header>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 bg-white p-2 rounded-xl shadow-md border border-gray-200 h-[600px] flex flex-col relative">
+                    
+                    <div id="infoVictimaPanel" class="hidden bg-red-50 border border-red-200 p-3 mb-2 rounded-lg">
+                        <div class="flex items-start space-x-3">
+                            <div class="text-2xl animate-pulse">🚨</div>
+                            <div>
+                                <h4 class="font-bold text-red-700 text-sm uppercase">Atención Requerida: <span id="infoNombre" class="text-red-900">-</span></h4>
+                                <p class="text-xs text-red-600 mt-1"><b>Teléfono:</b> <span id="infoCelular">-</span> | <b>Dispositivo:</b> <span id="infoId">-</span></p>
+                                <p class="text-xs text-red-600"><b>Dirección/Ref:</b> <span id="infoDireccion">-</span></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 id="tituloMapa" class="font-semibold text-gray-700 px-4 py-2 border-b transition-colors duration-300">Ubicación GPS</h3>
+                    <iframe id="mapaMonitor" src="https://maps.google.com/maps?q=Zaragoza,Puebla&output=embed" class="w-full flex-1 rounded-b-lg border-0" allowfullscreen="" loading="lazy"></iframe>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-md border border-gray-200 h-[600px] flex flex-col overflow-hidden">
+                    <div class="bg-slate-800 p-4 border-b flex justify-between items-center">
+                        <h3 class="font-bold text-white flex items-center">Usuarios Registrados</h3>
+                        <span id="contadorUsuarios" class="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full">0</span>
+                    </div>
+                    
+                    <div id="listaUsuariosContainer" class="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+                        <div class="text-center text-gray-400 mt-10">Cargando usuarios...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="seccionHistorial" class="hidden animate-fade-in">
+            <header class="mb-8 flex justify-between items-center">
+                <div>
+                    <h2 class="text-3xl font-semibold text-gray-800">Bitácora de Incidentes</h2>
+                    <p class="text-gray-500 mt-1">Registro legal de emergencias atendidas por los oficiales.</p>
+                </div>
+            </header>
+            <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+                <table class="min-w-full text-left text-sm whitespace-nowrap">
+                    <thead class="uppercase tracking-wider border-b-2 border-gray-200 bg-gray-50 text-gray-600 font-bold">
+                        <tr>
+                            <th scope="col" class="px-6 py-4">Fecha y Hora</th>
+                            <th scope="col" class="px-6 py-4">Oficial que Atendió</th>
+                            <th scope="col" class="px-6 py-4">Ciudadano Auxiliado</th>
+                            <th scope="col" class="px-6 py-4">ID Pulsera</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaHistorial" class="divide-y divide-gray-200">
+                        <tr><td colspan="4" class="px-6 py-8 text-center text-gray-400">Cargando bitácora...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="seccionRegistro" class="hidden animate-fade-in">
+            <header class="mb-8">
+                <h2 class="text-3xl font-semibold text-gray-800">Alta en Plataforma</h2>
+                <p class="text-gray-500 mt-1">Llene los datos del ciudadano o punto de referencia.</p>
+            </header>
+            <div class="bg-white p-8 rounded-xl shadow-md max-w-3xl border border-gray-100">
+                <form id="registroForm" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">ID de Pulsera (Ej. XQJ-663)</label>
+                            <input type="text" id="deviceId" required class="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-md uppercase font-mono">
+                        </div>
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo del Ciudadano</label>
+                            <input type="text" id="nombre" required class="w-full px-4 py-2 border border-gray-300 rounded-md">
+                        </div>
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Número de Celular</label>
+                            <input type="tel" id="celular" required class="w-full px-4 py-2 border border-gray-300 rounded-md">
+                        </div>
+                        <div class="col-span-1 md:col-span-2 mt-2 pt-4 border-t border-gray-200">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Dirección Exacta (Calle, Número, Colonia, Municipio) *</label>
+                            <input type="text" id="direccion" required placeholder="Ej. Calle Independencia 12, Centro, Zaragoza, Pue." class="w-full px-4 py-2 border border-gray-300 rounded-md">
+                        </div>
+                    </div>
+                    <div class="pt-4 border-t border-gray-200 flex justify-end">
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md shadow">Registrar Ciudadano</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="seccionOficiales" class="hidden animate-fade-in">
+            <header class="mb-8">
+                <h2 class="text-3xl font-semibold text-gray-800">Registro de Elementos Policiales</h2>
+                <p class="text-gray-500 mt-1">Esta sección está desbloqueada por el Comandante.</p>
+            </header>
+            <div class="bg-white p-8 rounded-xl shadow-md max-w-3xl border border-gray-100 relative">
+                <div class="absolute top-4 right-4 text-green-600 opacity-20">
+                    <i class="fas fa-lock-open text-6xl"></i>
+                </div>
+                <form id="registroOficialesForm" class="space-y-6 relative z-10">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Número de Placa / Gafete *</label>
+                            <input type="text" id="placaOficial" required class="w-full px-4 py-2 bg-slate-50 border border-gray-300 rounded-md uppercase font-bold text-slate-700">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Rango / Cargo *</label>
+                            <select id="rangoOficial" required class="w-full px-4 py-2 border border-gray-300 rounded-md">
+                                <option value="Policía Preventivo">Policía Preventivo</option>
+                                <option value="Comandante">Comandante</option>
+                                <option value="Operador C2/Monitorista">Operador C2 / Monitorista</option>
+                            </select>
+                        </div>
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nombre Completo del Oficial *</label>
+                            <input type="text" id="nombreOficial" required class="w-full px-4 py-2 border border-gray-300 rounded-md">
+                        </div>
+                        <div class="col-span-1 md:col-span-2 mt-4 pt-4 border-t border-slate-200">
+                            <h4 class="text-sm font-bold text-slate-700 mb-4"><i class="fas fa-key"></i> Credenciales de Acceso</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Correo Institucional *</label>
+                                    <input type="email" id="emailOficial" required placeholder="oficial@zaragoza.gob.mx" class="w-full px-4 py-2 border border-gray-300 rounded-md">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Contraseña *</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="password" id="passwordOficial" required placeholder="Mínimo 6 caracteres" class="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 outline-none">
+                                        <button type="button" id="btnVerPassOficial" class="flex-none flex justify-center items-center px-4 py-2 bg-slate-100 border border-slate-300 rounded-md text-slate-500 hover:bg-slate-200 hover:text-blue-600 focus:outline-none transition-colors">
+                                            <i class="fas fa-eye text-lg" id="iconoPassOficial"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pt-6 mt-4 border-t border-gray-200 flex justify-end">
+                        <button type="submit" id="btnGuardarOficial" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md shadow">Guardar Nuevo Oficial</button>
+                    </div>
+                    <div id="mensajeOficial" class="hidden mt-4 p-3 rounded-md text-sm font-medium"></div>
+                </form>
+            </div>
+        </div>
+
+    </main>
+
+    <audio id="audioAlerta" src="https://assets.mixkit.co/active_storage/sfx/995/995-preview.mp3" loop preload="auto"></audio>
+
+    <script>
+        // NAVEGACIÓN
+        const btnNavMonitoreo = document.getElementById('btnNavMonitoreo');
+        const btnNavRegistro = document.getElementById('btnNavRegistro');
+        const btnNavHistorial = document.getElementById('btnNavHistorial');
+        const btnNavOficiales = document.getElementById('btnNavOficiales'); 
+        
+        const secciones = ['seccionMonitoreo', 'seccionRegistro', 'seccionHistorial', 'seccionOficiales'];
+        const botones = [btnNavMonitoreo, btnNavRegistro, btnNavHistorial, btnNavOficiales];
+        
+        const claseActivo = "w-full text-left block px-4 py-2 bg-blue-600 text-white rounded-md shadow transition";
+        const claseInactivo = "w-full text-left block px-4 py-2 text-slate-300 hover:bg-slate-800 rounded-md transition";
+
+        window.cambiarSeccion = function(indiceActivo) {
+            secciones.forEach((id, i) => {
+                document.getElementById(id).classList.add('hidden');
+                if(i === 3) botones[i].className = claseInactivo + " flex justify-between items-center";
+                else botones[i].className = claseInactivo;
+            });
+            
+            document.getElementById(secciones[indiceActivo]).classList.remove('hidden');
+            if(indiceActivo === 3) botones[indiceActivo].className = "w-full text-left block px-4 py-2 bg-slate-700 text-white rounded-md shadow transition flex justify-between items-center";
+            else botones[indiceActivo].className = claseActivo;
+        };
+
+        btnNavMonitoreo.addEventListener('click', () => window.cambiarSeccion(0));
+        btnNavRegistro.addEventListener('click', () => window.cambiarSeccion(1));
+        btnNavHistorial.addEventListener('click', () => window.cambiarSeccion(2));
+
+        // ==========================================
+        // LÓGICA PARA VER/OCULTAR CONTRASEÑAS
+        // ==========================================
+        function configurarOjoPassword(idInput, idBoton, idIcono) {
+            const input = document.getElementById(idInput);
+            const boton = document.getElementById(idBoton);
+            const icono = document.getElementById(idIcono);
+
+            boton.addEventListener('click', () => {
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    icono.classList.remove('fa-eye');
+                    icono.classList.add('fa-eye-slash');
+                } else {
+                    input.type = 'password';
+                    icono.classList.remove('fa-eye-slash');
+                    icono.classList.add('fa-eye');
+                }
+            });
+        }
+
+        configurarOjoPassword('modalPassCmdt', 'btnVerPassModal', 'iconoPassModal');
+        configurarOjoPassword('passwordOficial', 'btnVerPassOficial', 'iconoPassOficial');
+    </script>
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, doc, updateDoc, query, where, getDocs, orderBy } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+        // 📡 DB 1: PULSERAS
+        const configPulseras = {
+            apiKey: "AIzaSyDQYmD52j8T0FQwr8qoOlPni8PMMLZYAMU",
+            authDomain: "connect-safe-649af.firebaseapp.com",
+            projectId: "connect-safe-649af"
+        };
+
+        // 🏢 DB 2: POLICÍA
+        const configPolicia = {
+            apiKey: "AIzaSyDq6oexUqr_LyHFvzqK01A8vlfOG3cwsoA",
+            authDomain: "connect-safe-7da2a.firebaseapp.com",
+            databaseURL: "https://connect-safe-7da2a-default-rtdb.firebaseio.com",
+            projectId: "connect-safe-7da2a"
+        };
+
+        const appPulseras = initializeApp(configPulseras, "AppPulseras");
+        const dbPulseras = getFirestore(appPulseras);
+
+        const appPolicia = initializeApp(configPolicia); 
+        const dbPolicia = getFirestore(appPolicia);
+        const authPrincipal = getAuth(appPolicia);
+
+        const appCreadorCuentas = initializeApp(configPolicia, "CreadorCuentas");
+        const authCreador = getAuth(appCreadorCuentas);
+
+        // ==========================================
+        // 0. SEGURIDAD Y DATOS DEL OFICIAL LOGUEADO
+        // ==========================================
+        const bodyPrincipal = document.getElementById('bodyPrincipal');
+        const pantallaCargaAuth = document.getElementById('pantallaCargaAuth');
+        
+        let memoriaUsuarios = {};
+        let oficialLogueadoNombre = "Desconocido";
+        let oficialLogueadoPlaca = "S/N";
+        let oficialLogueadoRango = ""; 
+        let oficialLogueadoEmail = ""; 
+
+        onAuthStateChanged(authPrincipal, async (user) => {
+            if (user) {
+                try {
+                    const q = query(collection(dbPolicia, 'oficiales_seguridad'), where("email", "==", user.email));
+                    const snapshot = await getDocs(q);
+                    
+                    if (!snapshot.empty) {
+                        const datosOficial = snapshot.docs[0].data();
+                        oficialLogueadoNombre = datosOficial.nombre;
+                        oficialLogueadoPlaca = datosOficial.placa;
+                        oficialLogueadoRango = datosOficial.rango || ""; 
+                        oficialLogueadoEmail = datosOficial.email || user.email; 
+                        
+                        document.getElementById('uiOficialNombre').textContent = oficialLogueadoNombre;
+                        document.getElementById('uiOficialPlaca').textContent = "PLACA: " + oficialLogueadoPlaca;
+                    } else {
+                        document.getElementById('uiOficialNombre').textContent = "Admin Sistema";
+                        document.getElementById('uiOficialPlaca').textContent = user.email;
+                        oficialLogueadoEmail = user.email;
+                    }
+                } catch (error) {
+                    console.error("Error al leer la BD:", error);
+                }
+
+                pantallaCargaAuth.style.display = 'none';
+                bodyPrincipal.classList.remove('hidden');
+            } else {
+                window.location.replace('login.html'); 
+            }
+        });
+
+        document.getElementById('btnCerrarSesion').addEventListener('click', () => {
+            signOut(authPrincipal);
+        });
+
+        // ==========================================
+        // LÓGICA DE LA VENTANA EMERGENTE (MODAL)
+        // ==========================================
+        const modalCmdt = document.getElementById('modalCmdt');
+        const msgModalCmdt = document.getElementById('msgModalCmdt');
+        const inputPass = document.getElementById('modalPassCmdt');
+        
+        document.getElementById('btnNavOficiales').addEventListener('click', () => {
+            if (oficialLogueadoRango === "Comandante" || oficialLogueadoNombre === "Admin Sistema") {
+                document.getElementById('modalEmailCmdt').value = oficialLogueadoEmail;
+            } else {
+                document.getElementById('modalEmailCmdt').value = "";
+            }
+            
+            inputPass.value = "";
+            
+            // Asegurar que el ojito esté reseteado (oculto) al abrir el modal
+            inputPass.type = 'password';
+            document.getElementById('iconoPassModal').classList.remove('fa-eye-slash');
+            document.getElementById('iconoPassModal').classList.add('fa-eye');
+            
+            msgModalCmdt.classList.add('hidden');
+            modalCmdt.classList.remove('hidden');
+            setTimeout(() => inputPass.focus(), 100); 
+        });
+
+        document.getElementById('btnCancelarModal').addEventListener('click', () => {
+            modalCmdt.classList.add('hidden');
+        });
+
+        document.getElementById('btnAutorizarModal').addEventListener('click', async () => {
+            const emailCmdt = document.getElementById('modalEmailCmdt').value.trim();
+            const pass = inputPass.value;
+            const btn = document.getElementById('btnAutorizarModal');
+
+            if(!emailCmdt || !pass) {
+                msgModalCmdt.textContent = "Por favor, ingrese el correo y la contraseña.";
+                msgModalCmdt.classList.remove('hidden');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...';
+            msgModalCmdt.classList.add('hidden');
+
+            try {
+                await signInWithEmailAndPassword(authCreador, emailCmdt, pass);
+                await signOut(authCreador);
+                
+                const qCmdt = query(collection(dbPolicia, 'oficiales_seguridad'), where("email", "==", emailCmdt));
+                const snapshotCmdt = await getDocs(qCmdt);
+                
+                let esComandanteValido = false;
+                
+                if (!snapshotCmdt.empty) {
+                    const datosCmdt = snapshotCmdt.docs[0].data();
+                    if (datosCmdt.rango === "Comandante" || datosCmdt.nombre === "Admin Sistema") {
+                        esComandanteValido = true;
+                    }
+                } 
+
+                if (!esComandanteValido) {
+                    msgModalCmdt.textContent = "❌ Acceso Denegado. Las credenciales no pertenecen a un Comandante.";
+                    msgModalCmdt.classList.remove('hidden');
+                    return; 
+                }
+
+                modalCmdt.classList.add('hidden');
+                inputPass.value = ""; 
+                window.cambiarSeccion(3); 
+
+            } catch (error) {
+                if(error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+                    msgModalCmdt.textContent = "❌ Contraseña incorrecta.";
+                } else if(error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
+                    msgModalCmdt.textContent = "❌ El correo no existe o está mal escrito.";
+                } else {
+                    msgModalCmdt.textContent = "❌ Ocurrió un error de red.";
+                }
+                msgModalCmdt.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-key"></i> Desbloquear';
+            }
+        });
+
+        // ==========================================
+        // 1. CARGAR LISTA DE CIUDADANOS (MEMORIA)
+        // ==========================================
+        const listaUsuariosContainer = document.getElementById('listaUsuariosContainer');
+        const contadorUsuarios = document.getElementById('contadorUsuarios');
+
+        onSnapshot(collection(dbPolicia, 'registros_seguridad'), (snapshot) => {
+            listaUsuariosContainer.innerHTML = ''; 
+            memoriaUsuarios = {}; 
+            
+            if (snapshot.empty) {
+                contadorUsuarios.innerText = "0";
+                listaUsuariosContainer.innerHTML = '<p class="text-gray-500 text-center py-4 text-sm">No hay usuarios registrados aún.</p>';
+                return;
+            }
+
+            contadorUsuarios.innerText = snapshot.size; 
+
+            snapshot.forEach((doc) => {
+                const usuario = doc.data(); 
+                if(usuario.deviceId) memoriaUsuarios[usuario.deviceId] = usuario;
+
+                const inicial = usuario.nombre ? usuario.nombre.charAt(0).toUpperCase() : '?';
+                const divId = usuario.deviceId ? `card-${usuario.deviceId}` : `card-${doc.id}`;
+                const datoMapa = usuario.ubicacion ? usuario.ubicacion : usuario.direccion;
+
+                const tarjetaHtml = `
+                    <div id="${divId}" class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm relative">
+                        <div class="absolute top-4 right-4 flex items-center status-indicator">
+                            <span class="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse mr-1.5 status-dot"></span>
+                            <span class="text-[10px] text-gray-500 font-bold tracking-wider status-text">ONLINE</span>
+                        </div>
+                        <div class="flex items-center space-x-3 mb-3">
+                            <div class="w-10 h-10 bg-slate-100 text-slate-700 rounded-full flex justify-center items-center font-bold text-lg border">${inicial}</div>
+                            <div>
+                                <p class="font-bold text-gray-800 text-sm leading-tight">${usuario.nombre}</p>
+                                <p class="text-xs text-gray-500 mt-0.5">ID: <span class="font-bold text-blue-600">${usuario.deviceId || 'Sin asignar'}</span></p>
+                            </div>
+                        </div>
+                        <div class="mt-3 grid grid-cols-1 gap-2">
+                            <button data-device-id="${usuario.deviceId}" data-ubicacion="${datoMapa}" class="btn-ubicar w-full bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-xs font-bold py-2 rounded transition">📍 Ver Ubicación</button>
+                            <button data-device-id="${usuario.deviceId}" class="btn-atender hidden w-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-2 rounded transition">✅ Atender Emergencia</button>
+                        </div>
+                    </div>
+                `;
+                listaUsuariosContainer.innerHTML += tarjetaHtml;
+            });
+        });
+
+       // ==========================================
+        // 2. ESCUCHAR ALERTAS Y ACTUALIZAR MAPA IFRAME
+        // ==========================================
+        onSnapshot(collection(dbPulseras, 'devices'), (snapshot) => {
+            snapshot.docChanges().forEach((change) => {
+                const deviceData = change.doc.data();
+                const deviceId = change.doc.id; 
+                
+                const card = document.getElementById(`card-${deviceId}`);
+                const audioAlerta = document.getElementById('audioAlerta');
+                const mapaMonitor = document.getElementById('mapaMonitor');
+                const infoVictimaPanel = document.getElementById('infoVictimaPanel');
+
+                if (card) {
+                    const btnUbicar = card.querySelector('.btn-ubicar');
+                    const btnAtender = card.querySelector('.btn-atender');
+                    const statusDot = card.querySelector('.status-dot');
+                    const statusText = card.querySelector('.status-text');
+                    
+                    let ubicacionActual = btnUbicar.getAttribute('data-ubicacion');
+
+                    if (deviceData.lastKnownLocation) {
+                        let lat = deviceData.lastKnownLocation.latitude || deviceData.lastKnownLocation[0];
+                        let lng = deviceData.lastKnownLocation.longitude || deviceData.lastKnownLocation[1];
+                        if (lat && lng) ubicacionActual = `${lat},${lng}`; 
+                    }
+
+                    const user = memoriaUsuarios[deviceId] || { nombre: "Desconocido", celular: "-", direccion: "-" };
+
+                    if (deviceData.isSOSActive === true) {
+                        card.classList.remove('border-gray-200', 'bg-orange-50', 'border-orange-500');
+                        card.classList.add('border-red-600', 'bg-red-50', 'animate-pulse');
+                        
+                        statusDot.classList.remove('bg-green-500', 'bg-orange-500');
+                        statusDot.classList.add('bg-red-600');
+                        statusText.textContent = "¡SOS ACTIVO!";
+                        statusText.classList.remove('text-gray-500', 'text-orange-600');
+                        statusText.classList.add('text-red-600');
+                        
+                        btnAtender.innerHTML = "✅ Atender Emergencia";
+                        btnAtender.classList.remove('hidden', 'bg-orange-600', 'hover:bg-orange-700');
+                        btnAtender.classList.add('bg-red-600', 'hover:bg-red-700');
+                        btnUbicar.classList.add('hidden');
+                        
+                        mapaMonitor.src = `https://maps.google.com/maps?q=${encodeURIComponent(ubicacionActual)}&output=embed`;
+                        
+                        document.getElementById('infoNombre').textContent = user.nombre;
+                        document.getElementById('infoCelular').textContent = user.celular;
+                        document.getElementById('infoId').textContent = deviceId;
+                        document.getElementById('infoDireccion').textContent = user.direccion;
+                        
+                        infoVictimaPanel.classList.remove('hidden', 'bg-orange-50', 'border-orange-200');
+                        infoVictimaPanel.classList.add('bg-red-50', 'border-red-200');
+                        
+                        let playPromise = audioAlerta.play();
+                        if (playPromise !== undefined) playPromise.catch(e => console.log("Clic requerido para audio."));
+                        
+                    } 
+                    else if (deviceData.inactivityWarning === true) {
+                        card.classList.remove('border-gray-200', 'bg-red-50', 'border-red-600', 'animate-pulse');
+                        card.classList.add('border-orange-500', 'bg-orange-50');
+                        
+                        statusDot.classList.remove('bg-green-500', 'bg-red-600');
+                        statusDot.classList.add('bg-orange-500');
+                        statusText.textContent = "⚠️ INACTIVIDAD";
+                        statusText.classList.remove('text-gray-500', 'text-red-600');
+                        statusText.classList.add('text-orange-600');
+                        
+                        btnAtender.innerHTML = "👁️ Revisar Actividad";
+                        btnAtender.classList.remove('hidden', 'bg-red-600', 'hover:bg-red-700');
+                        btnAtender.classList.add('bg-orange-600', 'hover:bg-orange-700');
+                        btnUbicar.classList.add('hidden');
+                        
+                        mapaMonitor.src = `https://maps.google.com/maps?q=${encodeURIComponent(ubicacionActual)}&output=embed`;
+                        
+                        document.getElementById('infoNombre').textContent = "ANOMALÍA RUTINA: " + user.nombre;
+                        document.getElementById('infoCelular').textContent = user.celular;
+                        document.getElementById('infoId').textContent = deviceId;
+                        document.getElementById('infoDireccion').textContent = user.direccion;
+                        
+                        infoVictimaPanel.classList.remove('hidden', 'bg-red-50', 'border-red-200');
+                        infoVictimaPanel.classList.add('bg-orange-50', 'border-orange-200');
+                        
+                        audioAlerta.pause(); audioAlerta.currentTime = 0;
+                    } 
+                    else {
+                        card.classList.remove('border-red-600', 'bg-red-50', 'animate-pulse', 'border-orange-500', 'bg-orange-50');
+                        card.classList.add('border-gray-200');
+                        
+                        statusDot.classList.remove('bg-red-600', 'bg-orange-500');
+                        statusDot.classList.add('bg-green-500');
+                        statusText.textContent = "ONLINE";
+                        statusText.classList.remove('text-red-600', 'text-orange-600');
+                        statusText.classList.add('text-gray-500');
+                        
+                        btnAtender.classList.add('hidden'); btnUbicar.classList.remove('hidden');
+                        infoVictimaPanel.classList.add('hidden');
+                        audioAlerta.pause(); audioAlerta.currentTime = 0;
+                    }
+                }
+            });
+        });
+
+        // ==========================================
+        // 3. EVENTO: CLICS EN LOS BOTONES DE LAS TARJETAS (NATIVO)
+        // ==========================================
+        listaUsuariosContainer.addEventListener('click', async (e) => {
+            const btnUbicar = e.target.closest('.btn-ubicar');
+            if (btnUbicar) {
+                const locTexto = btnUbicar.getAttribute('data-ubicacion');
+                document.getElementById('mapaMonitor').src = `https://maps.google.com/maps?q=${encodeURIComponent(locTexto)}&output=embed`;
+            }
+
+            const btnAtender = e.target.closest('.btn-atender');
+            if (btnAtender) {
+                const idPulsera = btnAtender.getAttribute('data-device-id');
+                if (idPulsera) {
+                    try {
+                        btnAtender.innerText = "Registrando...";
+                        
+                        await updateDoc(doc(dbPulseras, 'devices', idPulsera), { 
+                             isSOSActive: false,
+                             inactivityWarning: false 
+                        });
+                        
+                        const victima = memoriaUsuarios[idPulsera] || { nombre: "Desconocido" };
+                        const registroBitacora = {
+                            fechaHora: serverTimestamp(),
+                            oficialNombre: oficialLogueadoNombre,
+                            oficialPlaca: oficialLogueadoPlaca,
+                            victimaNombre: victima.nombre,
+                            deviceId: idPulsera
+                        };
+                        
+                        await addDoc(collection(dbPolicia, 'historial_alertas'), registroBitacora);
+
+                    } catch (error) {
+                        console.error(error); alert("Error al registrar la atención.");
+                    }
+                }
+            }
+        });
+
+        // ==========================================
+        // 4. MOSTRAR LA BITÁCORA
+        // ==========================================
+        const tablaHistorial = document.getElementById('tablaHistorial');
+        const qHistorial = query(collection(dbPolicia, 'historial_alertas'), orderBy('fechaHora', 'desc'));
+        
+        onSnapshot(qHistorial, (snapshot) => {
+            tablaHistorial.innerHTML = '';
+            if(snapshot.empty) {
+                tablaHistorial.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-gray-500">No hay emergencias registradas.</td></tr>';
+                return;
+            }
+            snapshot.forEach((doc) => {
+                const alerta = doc.data();
+                let fechaTexto = "Desconocida";
+                if(alerta.fechaHora) {
+                    const fecha = alerta.fechaHora.toDate();
+                    fechaTexto = fecha.toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' });
+                }
+                const fila = `
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-6 py-4 text-sm text-gray-800 font-medium">${fechaTexto}</td>
+                        <td class="px-6 py-4">
+                            <p class="text-sm font-bold text-slate-800">${alerta.oficialNombre}</p>
+                            <p class="text-xs text-blue-600 font-mono">${alerta.oficialPlaca}</p>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-700 font-bold">${alerta.victimaNombre}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500 font-mono">${alerta.deviceId}</td>
+                    </tr>
+                `;
+                tablaHistorial.innerHTML += fila;
+            });
+        });
+
+       // ==========================================
+        // 5. REGISTRO FORMULARIOS
+        // ==========================================
+        document.getElementById('registroForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                deviceId: document.getElementById('deviceId').value.trim().toUpperCase(),
+                nombre: document.getElementById('nombre').value, 
+                celular: document.getElementById('celular').value,
+                direccion: document.getElementById('direccion').value,
+                fechaRegistro: serverTimestamp()
+            };
+            await addDoc(collection(dbPolicia, 'registros_seguridad'), data);
+            document.getElementById('registroForm').reset(); alert("Ciudadano Guardado");
+        });
+
+        document.getElementById('registroOficialesForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btnGuardarOficial = document.getElementById('btnGuardarOficial');
+            const mensajeOficial = document.getElementById('mensajeOficial');
+
+            btnGuardarOficial.disabled = true;
+            btnGuardarOficial.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+
+            const emailNuevo = document.getElementById('emailOficial').value.trim();
+            const passwordNuevo = document.getElementById('passwordOficial').value;
+            
+            try {
+                const userCredential = await createUserWithEmailAndPassword(authCreador, emailNuevo, passwordNuevo);
+                await signOut(authCreador);
+
+                const data = {
+                    uidAuth: userCredential.user.uid,
+                    placa: document.getElementById('placaOficial').value.trim().toUpperCase(),
+                    rango: document.getElementById('rangoOficial').value, 
+                    nombre: document.getElementById('nombreOficial').value,
+                    email: emailNuevo, 
+                    fechaRegistro: serverTimestamp(),
+                    autorizadoPor: oficialLogueadoPlaca 
+                };
+                
+                await addDoc(collection(dbPolicia, 'oficiales_seguridad'), data);
+                
+                document.getElementById('registroOficialesForm').reset();
+                
+                // Asegurarnos de que el ojo se reinicia también al guardar
+                document.getElementById('passwordOficial').type = 'password';
+                document.getElementById('iconoPassOficial').classList.remove('fa-eye-slash');
+                document.getElementById('iconoPassOficial').classList.add('fa-eye');
+                 
+                mensajeOficial.textContent = "✅ Elemento dado de alta y autorizado exitosamente.";
+                mensajeOficial.className = "mt-4 p-3 rounded-md text-sm font-medium bg-green-100 text-green-700 block border border-green-200";
+                mensajeOficial.classList.remove('hidden');
+
+            } catch (error) { 
+                console.error(error);
+                if(error.code === 'auth/email-already-in-use') {
+                    mensajeOficial.textContent = "❌ El correo institucional del nuevo oficial ya está registrado.";
+                } else {
+                    mensajeOficial.textContent = "❌ Error en el sistema: " + error.message;
+                }
+                mensajeOficial.className = "mt-4 p-3 rounded-md text-sm font-medium bg-red-100 text-red-700 block border border-red-200";
+                mensajeOficial.classList.remove('hidden');
+            } finally {
+                btnGuardarOficial.disabled = false;
+                btnGuardarOficial.innerText = "Guardar Nuevo Oficial";
+                setTimeout(() => { mensajeOficial.classList.add('hidden'); }, 6000);
+            }
+        });
+    </script>
+</body>
+</html>

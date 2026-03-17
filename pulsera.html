@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pulsera Simulador</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 30px; background-color: #f0f4f8; }
+        .btn { padding: 15px 30px; font-size: 18px; color: white; border: none; border-radius: 10px; cursor: pointer; margin: 10px; width: 80%; max-width: 300px; font-weight: bold; }
+        .btn-start { background-color: #28a745; }
+        .btn-stop { background-color: #dc3545; }
+        .btn-sos { background-color: #ff0000; padding: 25px 30px; font-size: 24px; animation: pulse 2s infinite; margin-top: 20px;}
+        #status { margin: 20px auto; font-size: 16px; color: #333; padding: 15px; background: white; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); width: 85%; max-width: 350px;}
+        .dato { font-weight: bold; color: #0056b3; }
+        .input-id { padding: 12px; font-size: 18px; text-align: center; font-weight: bold; text-transform: uppercase; border: 2px solid #ccc; border-radius: 8px; width: 60%; max-width: 250px; outline: none;}
+        .input-id:focus { border-color: #0056b3; }
+        .input-id:disabled { background-color: #e9ecef; cursor: not-allowed; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+    </style>
+</head>
+<body>
+
+    <h2>Simulador de Pulsera Connect Safe</h2>
+    
+    <div style="margin-bottom: 20px;">
+        <label for="inputId" style="display: block; margin-bottom: 8px; font-weight: bold; color: #555;">ID del Dispositivo:</label>
+        <input type="text" id="inputId" class="input-id" value="XQJ-663" placeholder="EJ. XQJ-663">
+    </div>
+
+    <div id="status">
+        📡 Estado: <span id="lblEstado" style="color: red; font-weight:bold;">Apagado</span><br><br>
+        📍 Lat: <span id="lblLat" class="dato">--</span><br>
+        📍 Lng: <span id="lblLng" class="dato">--</span><br>
+        ⏱️ Último envío: <span id="lblHora" class="dato">--</span>
+    </div>
+
+    <button id="btnStart" class="btn btn-start">▶️ Iniciar Rutina (Enviar GPS)</button>
+    <button id="btnStop" class="btn btn-stop" style="display:none;">⏹️ Detener GPS</button>
+    
+    <br><hr style="width:80%; opacity:0.3;"><br>
+    
+    <button id="btnSOS" class="btn btn-sos">🚨 BOTÓN DE PÁNICO</button>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getFirestore, doc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        
+        // CONFIGURACIÓN (Debe ser la de las Pulseras)
+        const firebaseConfig = {
+            apiKey: "AIzaSyDQYmD52j8T0FQwr8qoOlPni8PMMLZYAMU",
+            authDomain: "connect-safe-649af.firebaseapp.com",
+            databaseURL: "https://connect-safe-649af-default-rtdb.firebaseio.com", 
+            projectId: "connect-safe-649af"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        let rastreadorId = null;
+
+        const inputId = document.getElementById('inputId');
+        const lblEstado = document.getElementById('lblEstado');
+        const lblLat = document.getElementById('lblLat');
+        const lblLng = document.getElementById('lblLng');
+        const lblHora = document.getElementById('lblHora');
+        const btnStart = document.getElementById('btnStart');
+        const btnStop = document.getElementById('btnStop');
+        const btnSOS = document.getElementById('btnSOS');
+
+        // Obtener el ID siempre en mayúsculas y sin espacios
+        function getDeviceId() {
+            return inputId.value.trim().toUpperCase();
+        }
+
+        // FUNCIÓN PARA ENVIAR A REALTIME DATABASE (La Rutina)
+        function guardarRutinaRTDB(lat, lng, deviceId) {
+            const punto = { lat: lat, lng: lng, timestamp: Date.now() };
+            fetch(`https://connect-safe-649af-default-rtdb.firebaseio.com/rutinas/${deviceId}.json`, {
+                method: 'POST',
+                body: JSON.stringify(punto)
+            }).catch(e => console.error("Error guardando rutina:", e));
+        }
+
+        // FUNCIÓN PARA ACTUALIZAR FIRESTORE (El Tiempo Real)
+        async function actualizarUbicacionActual(lat, lng, deviceId) {
+            try {
+                // Usamos setDoc con merge: true por si el documento no existe aún en Firestore
+                await setDoc(doc(db, "devices", deviceId), {
+                    lastKnownLocation: { latitude: lat, longitude: lng }
+                }, { merge: true });
+                
+                let d = new Date();
+                lblHora.innerText = d.toLocaleTimeString();
+            } catch (error) { console.error("Error en Firestore:", error); }
+        }
+
+        // LÓGICA DEL GPS
+        function exitoGPS(posicion) {
+            let lat = posicion.coords.latitude;
+            let lng = posicion.coords.longitude;
+            let deviceId = getDeviceId();
+            
+            lblLat.innerText = lat.toFixed(5);
+            lblLng.innerText = lng.toFixed(5);
+
+            // Guardamos en ambas bases de datos
+            actualizarUbicacionActual(lat, lng, deviceId);
+            guardarRutinaRTDB(lat, lng, deviceId);
+        }
+
+        function errorGPS(err) {
+            lblEstado.innerText = "Error GPS: " + err.message;
+            lblEstado.style.color = "red";
+            detenerRastreo();
+        }
+
+        function iniciarRastreo() {
+            const deviceId = getDeviceId();
+            if(!deviceId) { alert("¡Por favor, ingresa un ID para la pulsera!"); return; }
+
+            if (!navigator.geolocation) { alert("Tu celular no soporta GPS."); return; }
+            
+            inputId.disabled = true; // Bloquear ID mientras rastrea
+            lblEstado.innerText = "Rastreando y Guardando Rutina...";
+            lblEstado.style.color = "green";
+            btnStart.style.display = "none";
+            btnStop.style.display = "inline-block";
+
+            // Pide la ubicación del celular y la manda cada vez que se mueve
+            rastreadorId = navigator.geolocation.watchPosition(exitoGPS, errorGPS, {
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 5000
+            });
+        }
+
+        function detenerRastreo() {
+            if (rastreadorId) navigator.geolocation.clearWatch(rastreadorId);
+            inputId.disabled = false; // Desbloquear ID
+            lblEstado.innerText = "Apagado";
+            lblEstado.style.color = "red";
+            btnStart.style.display = "inline-block";
+            btnStop.style.display = "none";
+        }
+
+        // BOTÓN DE PÁNICO
+        btnSOS.addEventListener('click', async () => {
+            const deviceId = getDeviceId();
+            if(!deviceId) { alert("¡Ingresa un ID antes de mandar la alerta!"); return; }
+
+            if(confirm(`¿Seguro que quieres activar el Pánico para ${deviceId}?`)) {
+                try {
+                    await setDoc(doc(db, "devices", deviceId), { isSOSActive: true }, { merge: true });
+                    alert("¡SOS ENVIADO A LA POLICÍA!");
+                } catch (error) { alert("Error al enviar SOS. Revisa tu internet."); }
+            }
+        });
+
+        btnStart.addEventListener('click', iniciarRastreo);
+        btnStop.addEventListener('click', detenerRastreo);
+
+    </script>
+</body>
+</html>
